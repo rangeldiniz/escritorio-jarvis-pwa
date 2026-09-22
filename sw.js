@@ -4,7 +4,11 @@
 // muda de minuto em minuto, e uma resposta guardada faria o app estampar uma
 // foto velha como se fosse de agora — que é exatamente o defeito que o campo
 // "foto de X min atrás" existe pra denunciar. Dado sempre vem da rede.
-const CASCA = 'escritorio-casca-v1';
+// ⚠️ SUBIR ESTE NÚMERO A CADA MUDANÇA EM app.js / cofre.js / index.html.
+// O `activate` apaga todo cache com nome diferente — é isso que faz o app já
+// instalado no iPhone largar a versão velha. Sem subir, ele serve o arquivo
+// antigo para sempre e a correção nunca chega no aparelho.
+const CASCA = 'escritorio-casca-v2';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'cofre.js', 'manifest.webmanifest',
                   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 

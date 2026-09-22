@@ -18,6 +18,10 @@ let estado = null;      // último snapshot decifrado
 let ocioso = null;
 
 const $ = (s) => document.querySelector(s);
+const minutos = (ms) => {
+  const s = Math.ceil(ms / 1000);
+  return s < 60 ? `${s}s` : `${Math.ceil(s / 60)} min`;
+};
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? p; } catch { return p; } };
 
@@ -80,7 +84,14 @@ function mostrar(tela) {
 // ── abrir ─────────────────────────────────────────────────────────────────
 async function abrir(senha) {
   const ate = travadoAte();
-  if (ate) throw new Error(`esperando ${Math.ceil((ate - Date.now()) / 1000)}s por tentativas erradas`);
+  if (ate) {
+    // Marcado como `espera` pra NÃO virar mais um erro lá no handler: tocar em
+    // "abrir" durante a espera não testou senha nenhuma. Sem esta marca, quem
+    // fica tentando empurra a própria espera pra frente e nunca sai dela.
+    const e = new Error(`espere ${minutos(ate - Date.now())} — tentativas erradas demais`);
+    e.espera = true;
+    throw e;
+  }
   const sal = await baixar('sal.json', 'estado');
   const k = await cofre.derivar(senha, cofre.deb64(sal.sal), sal.iter);
   const env = await baixar('estado.json', 'estado');
@@ -171,6 +182,8 @@ addEventListener('DOMContentLoaded', () => {
   $('#form-config').addEventListener('submit', (ev) => {
     ev.preventDefault();
     guardar(CFG, { dono: $('#dono').value.trim(), repo: $('#repo').value.trim(), token: $('#token').value.trim() });
+    zerarTrava();   // saída de emergência de uma espera longa: custa redigitar o token
+
     $('#token').value = '';
     mostrar('trava');
   });
@@ -186,11 +199,12 @@ addEventListener('DOMContentLoaded', () => {
       mostrar('painel');
       aviso('');
     } catch (err) {
+      campo.value = '';
+      if (err.espera) return aviso(err.message, 'ruim');   // não testou senha: não conta
       const t = contarErro();
       const restam = LIMITE_ERROS - t.erros;
       aviso(restam > 0 ? `${err.message} — ${restam} tentativa(s) antes da espera`
                        : err.message, 'ruim');
-      campo.value = '';
     }
   });
 
