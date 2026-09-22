@@ -83,7 +83,13 @@
   <h1>Escritório</h1>
   <form id="form-trava">
     <label for="senha">senha do escritório</label>
-    <input id="senha" type="password" autocomplete="current-password" required>
+    <!-- autocomplete="off": com "current-password" o iOS OFERECE guardar a senha no
+       Chaveiro do iCloud — e aí ele passa a preencher sozinho, por cima do que se
+       digita. Foi o que travou o Rangel em 22/09. Também contradiz a promessa
+       logo abaixo: esta senha é a chave do escritório inteiro e não deve morar
+       em lugar nenhum. -->
+    <input id="senha" type="password" autocomplete="off" autocapitalize="off"
+           autocorrect="off" spellcheck="false" required>
     <button type="submit">abrir</button>
   </form>
   <p class="aviso" id="aviso"></p>

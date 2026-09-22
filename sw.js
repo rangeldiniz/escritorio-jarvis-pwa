@@ -8,7 +8,7 @@
 // O `activate` apaga todo cache com nome diferente — é isso que faz o app já
 // instalado no iPhone largar a versão velha. Sem subir, ele serve o arquivo
 // antigo para sempre e a correção nunca chega no aparelho.
-const CASCA = 'escritorio-casca-v2';
+const CASCA = 'escritorio-casca-v3';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'cofre.js', 'manifest.webmanifest',
                   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
