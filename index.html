@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1E1E1E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Escritório</title>
+<style>
+  /* Cores SÓ do manual de marca (design-system/tokens.css). Nenhuma inventada. */
+  :root{
+    --bg:#1E1E1E; --fg:#FFF5E4; --cream:#FFF5E4; --white:#FFFFFF;
+    --muted:#9A948A; --blue:#0056B3; --grey:#404040;
+    --tech:#7C6BFF; --tech-soft:#B3A8FF;
+    --good:#6AA66A; --bad:#CB8785; --warn:#7E9BBA;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+       padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+  h1{font-size:19px;margin:0;letter-spacing:.02em}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);
+     margin:26px 0 10px;font-weight:600}
+  p{margin:6px 0}
+  header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+         border-bottom:1px solid var(--grey);padding-bottom:12px}
+  .idade{font-size:12px;color:var(--muted)}
+  .idade.velha{color:var(--bad)}          /* foto velha aparece, não fica calada */
+  .barra{margin-left:auto;display:flex;gap:8px}
+  button{font:inherit;font-size:14px;padding:9px 14px;border-radius:9px;
+         border:1px solid var(--grey);background:transparent;color:var(--fg);cursor:pointer}
+  button:active{transform:translateY(1px)}
+  button:disabled{opacity:.4}
+  .sim{border-color:var(--good);color:var(--good)}
+  .nao{border-color:var(--bad);color:var(--bad)}
+  #resumo{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+  .cartao{background:var(--grey);border-radius:11px;padding:11px 8px;text-align:center}
+  .cartao b{display:block;font-size:22px;color:var(--tech-soft)}
+  .cartao span{font-size:11px;color:var(--muted)}
+  .acao,.alarme{background:var(--grey);border-radius:13px;padding:14px;margin-bottom:11px}
+  .acao b,.alarme b{color:var(--white)}
+  .acao p,.alarme p{color:var(--cream);font-size:14px}
+  .acao dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:10px 0 6px;font-size:13px}
+  .acao dt{color:var(--muted)}
+  .acao dd{margin:0}
+  .acao small,.alarme small{color:var(--muted);font-size:12px}
+  .botoes{display:flex;gap:9px;margin-top:12px}
+  .acao.enviada{opacity:.45}
+  .alarme{border-left:3px solid var(--bad)}
+  .vazio{color:var(--muted);font-size:14px}
+  .aviso{min-height:20px;font-size:13px;margin-top:12px;color:var(--muted)}
+  .aviso.bom{color:var(--good)} .aviso.ruim{color:var(--bad)}
+  form{max-width:420px}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 5px}
+  input{width:100%;font:inherit;padding:12px;border-radius:9px;
+        border:1px solid var(--grey);background:#000;color:var(--fg)}
+  .nota{font-size:13px;color:var(--muted);border-left:2px solid var(--tech);padding-left:11px;margin:18px 0}
+</style>
+</head>
+<body>
+
+<section id="config" hidden>
+  <h1>Escritório — configurar</h1>
+  <p class="nota">Estes três dados ficam <b>só neste aparelho</b>. Nada deles vai
+  parar no site: por isso esta página pode ser pública sem dizer de quem é o escritório.</p>
+  <form id="form-config">
+    <label for="dono">dono do repositório no GitHub</label>
+    <input id="dono" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+    <label for="repo">repositório de dados</label>
+    <input id="repo" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+    <label for="token">token fine-grained (só este repositório, Contents: read&nbsp;and&nbsp;write)</label>
+    <input id="token" type="password" autocomplete="off" required>
+    <p class="nota">O token dá acesso ao repositório — ele não decifra nada.
+    Quem decifra é a senha, e a senha nunca é guardada.</p>
+    <button type="submit">guardar neste aparelho</button>
+  </form>
+</section>
+
+<section id="trava" hidden>
+  <h1>Escritório</h1>
+  <form id="form-trava">
+    <label for="senha">senha do escritório</label>
+    <input id="senha" type="password" autocomplete="current-password" required>
+    <button type="submit">abrir</button>
+  </form>
+  <p class="aviso" id="aviso"></p>
+  <p class="nota">A senha não sai daqui e não fica guardada: ela vira a chave na
+  memória do aparelho e some quando o app fecha ou fica 15 min parado.</p>
+  <button id="reconfigurar">trocar repositório ou token</button>
+</section>
+
+<section id="painel" hidden>
+  <header>
+    <h1>Escritório</h1>
+    <span class="idade" id="idade"></span>
+    <span class="barra">
+      <button id="recarregar">atualizar</button>
+      <button id="trancar">trancar</button>
+    </span>
+  </header>
+  <div id="resumo"></div>
+  <h2>esperando decisão</h2>
+  <div id="fila"></div>
+  <h2>alarmes acesos</h2>
+  <div id="alarmes"></div>
+</section>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
