@@ -34,7 +34,23 @@ async function gh(caminho, opcoes = {}) {
   });
   if (!r.ok) {
     const m = await r.json().catch(() => ({}));
-    throw new Error(`GitHub ${r.status} — ${m.message || 'sem detalhe'}`);
+    // Marcado como `github` pra NÃO virar tentativa de senha lá no handler: o
+    // app nem chegou a testar senha nenhuma, ele não conseguiu BAIXAR o arquivo.
+    // Sem esta marca, um token sem permissão aparece como "senha errada" e leva
+    // horas de caça no lugar errado — foi o que aconteceu em 22/09.
+    const e = new Error(`GitHub ${r.status} — ${m.message || 'sem detalhe'}`);
+    e.github = r.status;
+    if (r.status === 401) {
+      e.dica = 'O token não foi aceito: ou está digitado errado, ou expirou. '
+             + 'Toque em "trocar repositório ou token" e cole de novo.';
+    }
+    if (r.status === 403 || r.status === 404) {
+      e.dica = 'O token não alcança o repositório. Em github.com → Settings → '
+             + 'Developer settings → Fine-grained tokens, confira que ele inclui '
+             + 'ESTE repositório e que Permissions → Contents está em '
+             + '"Read and write" (só Metadata não basta).';
+    }
+    throw e;
   }
   return r.json();
 }
@@ -200,7 +216,14 @@ addEventListener('DOMContentLoaded', () => {
       aviso('');
     } catch (err) {
       campo.value = '';
-      if (err.espera) return aviso(err.message, 'ruim');   // não testou senha: não conta
+      // Nem espera nem falha de rede são tentativa de senha: o app não testou
+      // senha nenhuma nesses casos, então não podem gastar tentativa.
+      if (err.espera) return aviso(err.message, 'ruim');
+      if (err.github) {
+        $('#dica').textContent = err.dica || '';
+        $('#dica').hidden = !err.dica;
+        return aviso(err.message, 'ruim');
+      }
       const t = contarErro();
       const restam = LIMITE_ERROS - t.erros;
       aviso(restam > 0 ? `${err.message} — ${restam} tentativa(s) antes da espera`
