@@ -28,7 +28,7 @@ const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k))
 // ── GitHub ────────────────────────────────────────────────────────────────
 // Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
 // serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
-const VERSAO_APP = 'v5';
+const VERSAO_APP = 'v6';
 
 async function gh(caminho, opcoes = {}) {
   const c = lido(CFG);
@@ -48,11 +48,23 @@ async function gh(caminho, opcoes = {}) {
       e.dica = 'O token não foi aceito: ou está digitado errado, ou expirou. '
              + 'Toque em "trocar repositório ou token" e cole de novo.';
     }
-    if (r.status === 403 || r.status === 404) {
-      e.dica = 'O token não alcança o repositório. Em github.com → Settings → '
-             + 'Developer settings → Fine-grained tokens, confira que ele inclui '
-             + 'ESTE repositório e que Permissions → Contents está em '
-             + '"Read and write" (só Metadata não basta).';
+    // 403 e 404 NÃO são o mesmo defeito, e tratá-los juntos mandou o dono
+    // conferir a permissão errada. Um token fine-grained responde 404 — não 403 —
+    // para repositório que ele NÃO ENXERGA, de propósito: assim ninguém usa um
+    // token para descobrir se um repositório privado existe. Então:
+    //   403 = o token VÊ o repositório, mas não tem a permissão certa.
+    //   404 = o token NÃO VÊ o repositório (ou o nome abaixo está errado).
+    if (r.status === 403) {
+      e.dica = 'O token alcança o repositório, mas falta permissão. Em github.com '
+             + '→ Settings → Developer settings → Fine-grained tokens, ponha '
+             + 'Permissions → Contents em "Read and write" (só Metadata não basta).';
+    }
+    if (r.status === 404) {
+      e.dica = `Este token não enxerga ${c.dono}/${c.repo}. Um token fine-grained `
+             + 'responde 404 (e não 403) para repositório fora da lista dele. '
+             + 'Confira as DUAS coisas: (1) o nome acima está escrito certo? '
+             + '(2) em Repository access, o repositório está selecionado? '
+             + 'Toque em "trocar repositório ou token" para corrigir.';
     }
     throw e;
   }
@@ -295,7 +307,10 @@ addEventListener('DOMContentLoaded', () => {
   });
   campoSenha.addEventListener('focus', () => { anterior = campoSenha.value.length; });
 
-  $('#versao').textContent = `app ${VERSAO_APP}`;
+  const cfgAtual = lido(CFG);
+  $('#versao').textContent = cfgAtual
+    ? `app ${VERSAO_APP} — lendo ${cfgAtual.dono}/${cfgAtual.repo}`
+    : `app ${VERSAO_APP}`;
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 });
