@@ -85,11 +85,16 @@
     <label for="senha">senha do escritório</label>
     <!-- autocomplete="off": com "current-password" o iOS OFERECE guardar a senha no
        Chaveiro do iCloud — e aí ele passa a preencher sozinho, por cima do que se
-       digita. Foi o que travou o Rangel em 22/09. Também contradiz a promessa
+       digita. Foi o que travou o dono em 22/09. Também contradiz a promessa
        logo abaixo: esta senha é a chave do escritório inteiro e não deve morar
        em lugar nenhum. -->
     <input id="senha" type="password" autocomplete="off" autocapitalize="off"
            autocorrect="off" spellcheck="false" required>
+    <!-- MEDIDA, não adivinhação (lição de 22/09): quando o app recusa a senha,
+       a pergunta seguinte é sempre "mas foi ISSO que eu digitei?". Este contador
+       responde sem nunca mostrar a senha — e denuncia o preenchimento automático
+       do iOS, que chega ao campo inteiro de uma vez, sem ninguém digitar. -->
+    <p class="nota" id="medida" hidden></p>
     <button type="submit">abrir</button>
   </form>
   <p class="aviso" id="aviso"></p>
@@ -97,6 +102,9 @@
   <p class="nota">A senha não sai daqui e não fica guardada: ela vira a chave na
   memória do aparelho e some quando o app fecha ou fica 15 min parado.</p>
   <button id="reconfigurar">trocar repositório ou token</button>
+  <!-- Carimbo de versão: sem ele, "qual código está rodando neste aparelho?" só
+     se responde por adivinhação — e um app instalado serve arquivo velho calado. -->
+  <p class="nota" id="versao"></p>
 </section>
 
 <section id="painel" hidden>

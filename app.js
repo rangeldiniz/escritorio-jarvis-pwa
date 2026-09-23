@@ -1,16 +1,16 @@
 // app.js — o Escritório no iPhone. Lê o estado cifrado do GitHub, decifra NO
 // APARELHO e devolve decisões assinadas. Nada em claro atravessa a rede.
 //
-// O QUE ESTE APP NÃO SABE: nada sobre o Rangel. Dono, repositório e token são
+// O QUE ESTE APP NÃO SABE: nada sobre o dono. Dono, repositório e token são
 // digitados no aparelho e ficam no aparelho. Por isso a página pode ser pública
 // sem revelar de quem é o escritório.
 import * as cofre from './cofre.js';
 
 const CFG = 'escritorio.cfg';         // {dono, repo, token} — fica no aparelho
 const TRAVA = 'escritorio.trava';     // {erros, ate} — sobrevive a recarregar
-const LIMITE_ERROS = 5;               // decisão do Rangel, 22/09
+const LIMITE_ERROS = 5;               // decisão do dono, 22/09
 const ESPERAS_S = [60, 300, 1800];    // 1min, 5min, 30min — nunca trava de vez
-const VALIDADE_S = 900;               // decisão do Rangel, 22/09: 15 min
+const VALIDADE_S = 900;               // decisão do dono, 22/09: 15 min
 const OCIOSO_MS = 15 * 60 * 1000;     // a chave some da memória depois disso
 
 let chaves = null;      // {cifra, assina} — SÓ em memória, nunca no disco
@@ -26,6 +26,10 @@ const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } 
 const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? p; } catch { return p; } };
 
 // ── GitHub ────────────────────────────────────────────────────────────────
+// Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
+// serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
+const VERSAO_APP = 'v5';
+
 async function gh(caminho, opcoes = {}) {
   const c = lido(CFG);
   const r = await fetch(`https://api.github.com/repos/${c.dono}/${c.repo}/${caminho}`, {
@@ -211,11 +215,13 @@ addEventListener('DOMContentLoaded', () => {
     try {
       await abrir(campo.value);
       campo.value = '';
+      $('#medida').hidden = true;
       pintar();
       mostrar('painel');
       aviso('');
     } catch (err) {
       campo.value = '';
+      $('#medida').hidden = true;   // a medida é da tentativa ATUAL; velha mente
       // Nem espera nem falha de rede são tentativa de senha: o app não testou
       // senha nenhuma nesses casos, então não podem gastar tentativa.
       if (err.espera) return aviso(err.message, 'ruim');
@@ -267,6 +273,29 @@ addEventListener('DOMContentLoaded', () => {
   $('#trancar').addEventListener('click', trancar);
   $('#reconfigurar').addEventListener('click', () => mostrar('config'));
   for (const ev of ['click', 'keydown']) addEventListener(ev, () => chaves && adiarTrancamento());
+
+  // ── o campo que se explica ──────────────────────────────────────────────
+  // Só o TAMANHO e a FORMA de chegada, nunca o conteúdo. Um salto de vários
+  // caracteres num único evento não é digitação humana: é o iOS preenchendo por
+  // cima com a senha que ele guardou antes — a causa mais provável de uma senha
+  // certa ser recusada, e invisível sem esta medida.
+  const campoSenha = $('#senha');
+  const medida = $('#medida');
+  let anterior = 0;
+  campoSenha.addEventListener('input', () => {
+    const n = campoSenha.value.length;
+    const salto = n - anterior;
+    anterior = n;
+    medida.hidden = n === 0;
+    medida.textContent = n === 0 ? ''
+      : salto > 1 ? `${n} caractere(s) — preenchido de uma vez, não digitado. `
+                  + 'Se você não colou, foi o iOS: apague a senha guardada em '
+                  + 'Ajustes > Apps > Senhas e digite de novo.'
+                  : `${n} caractere(s)`;
+  });
+  campoSenha.addEventListener('focus', () => { anterior = campoSenha.value.length; });
+
+  $('#versao').textContent = `app ${VERSAO_APP}`;
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 });
