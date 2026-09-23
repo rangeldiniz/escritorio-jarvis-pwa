@@ -10,60 +10,89 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Escritório</title>
 <style>
-  /* Cores SÓ do manual de marca (design-system/tokens.css). Nenhuma inventada. */
+  /* LAYOUT do template FlowForge (grade, vidro, rótulo mono, título em duas vozes);
+     CORES só do manual de marca (design-system/tokens.css) — o laranja virou o violeta --tech.
+     Fonte do SISTEMA de propósito: esta casca é pública e tem de abrir sem rede,
+     então nada de fonte externa (a SF do iPhone é parente próxima da Inter do template). */
   :root{
     --bg:#1E1E1E; --fg:#FFF5E4; --cream:#FFF5E4; --white:#FFFFFF;
-    --muted:#9A948A; --blue:#0056B3; --grey:#404040;
+    --muted:#9A948A; --blue:#0056B3; --grey:#404040; --grey2:#D6D6D6;
     --tech:#7C6BFF; --tech-soft:#B3A8FF;
     --good:#6AA66A; --bad:#CB8785; --warn:#7E9BBA;
+    --vidro:rgba(30,30,30,.72); --linha:rgba(255,255,255,.07);
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);
-       font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-       padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
-  h1{font-size:19px;margin:0;letter-spacing:.02em}
-  h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);
-     margin:26px 0 10px;font-weight:600}
+  body{margin:0;background:var(--bg);color:var(--grey2);
+       font:16px/1.5 -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+       padding:max(16px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom))}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background-size:28px 28px;
+    background-image:linear-gradient(to right,rgba(255,255,255,.025) 1px,transparent 1px),
+                     linear-gradient(to bottom,rgba(255,255,255,.025) 1px,transparent 1px);
+    -webkit-mask-image:radial-gradient(circle at 50% 10%,black 25%,transparent 75%);
+            mask-image:radial-gradient(circle at 50% 10%,black 25%,transparent 75%)}
+  body::after{content:"";position:fixed;top:-60px;left:-40px;width:300px;height:300px;border-radius:50%;
+    background:rgba(124,107,255,.08);filter:blur(90px);pointer-events:none;z-index:-1}
+  @keyframes pulsa{50%{opacity:.35}}
+  h1{margin:0;font-weight:500;letter-spacing:-.04em;line-height:.95;font-size:44px;color:var(--white)}
+  h1 .b{display:block;color:var(--grey)}
+  h2{display:flex;align-items:center;gap:9px;font:500 11px/1.4 var(--mono);text-transform:uppercase;
+     letter-spacing:.16em;color:var(--muted);margin:30px 0 12px}
+  h2::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--tech)}
   p{margin:6px 0}
-  header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
-         border-bottom:1px solid var(--grey);padding-bottom:12px}
-  .idade{font-size:12px;color:var(--muted)}
-  .idade.velha{color:var(--bad)}          /* foto velha aparece, não fica calada */
-  .barra{margin-left:auto;display:flex;gap:8px}
-  button{font:inherit;font-size:14px;padding:9px 14px;border-radius:9px;
-         border:1px solid var(--grey);background:transparent;color:var(--fg);cursor:pointer}
+  .nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .marca{display:flex;align-items:center;gap:10px;margin-right:auto}
+  .marca i{width:26px;height:26px;display:grid;place-items:center;border-radius:6px;background:var(--cream);
+    color:var(--bg);font:500 12px/1 var(--mono);font-style:normal}
+  .marca span{font-size:16px;font-weight:500;color:var(--cream)}
+  .rotulo{margin:34px 0 14px;font:11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
+  .idade{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:999px;
+    border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);font:12px/1.4 var(--mono);color:var(--grey2)}
+  .idade::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--good);animation:pulsa 2s ease-in-out infinite}
+  .idade.velha{color:var(--bad);border-color:rgba(203,135,133,.30)}   /* foto velha aparece, não fica calada */
+  .idade.velha::before{background:var(--bad)}
+  .barra{display:flex;gap:8px}
+  button{font-family:inherit;font-size:14px;font-weight:500;line-height:1.3;padding:9px 14px;border-radius:8px;
+         border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);color:var(--grey2);cursor:pointer}
   button:active{transform:translateY(1px)}
   button:disabled{opacity:.4}
-  .sim{border-color:var(--good);color:var(--good)}
-  .nao{border-color:var(--bad);color:var(--bad)}
-  #resumo{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
-  .cartao{background:var(--grey);border-radius:11px;padding:11px 8px;text-align:center}
-  .cartao b{display:block;font-size:22px;color:var(--tech-soft)}
-  .cartao span{font-size:11px;color:var(--muted)}
-  .acao,.alarme{background:var(--grey);border-radius:13px;padding:14px;margin-bottom:11px}
-  .acao b,.alarme b{color:var(--white)}
-  .acao p,.alarme p{color:var(--cream);font-size:14px}
-  .acao dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:10px 0 6px;font-size:13px}
-  .acao dt{color:var(--muted)}
-  .acao dd{margin:0}
-  .acao small,.alarme small{color:var(--muted);font-size:12px}
-  .botoes{display:flex;gap:9px;margin-top:12px}
+  button[type=submit],.sim{background:var(--tech);border-color:var(--tech);color:var(--white)}
+  .nao{color:var(--bad);border-color:rgba(203,135,133,.35);background:rgba(203,135,133,.06)}
+  #resumo{display:grid;grid-template-columns:repeat(4,1fr);margin-top:26px;border:1px solid var(--linha);
+    border-radius:12px;background:var(--vidro);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);overflow:hidden}
+  .cartao{padding:13px 12px;border-right:1px solid var(--linha);display:flex;flex-direction:column;gap:6px}
+  .cartao:last-child{border-right:0}
+  .cartao b{font-size:26px;font-weight:500;letter-spacing:-.04em;line-height:1;color:var(--white)}
+  .cartao span{font:10px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);order:-1}
+  .acao,.alarme{position:relative;background:var(--vidro);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    border:1px solid var(--linha);border-radius:12px;padding:15px;margin-bottom:12px}
+  .acao b,.alarme b{color:var(--white);font-weight:500}
+  .acao p,.alarme p{color:var(--grey2);font-size:14px;overflow-wrap:anywhere}
+  .acao dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:12px 0 8px;font-size:13px}
+  .acao dt{font:11px/1.6 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .acao dd{margin:0;color:var(--cream)}
+  .acao small,.alarme small{font:11.5px/1.5 var(--mono);color:var(--muted)}
+  .botoes{display:flex;gap:9px;margin-top:14px}
+  .botoes button{flex:1}
   .acao.enviada{opacity:.45}
-  .alarme{border-left:3px solid var(--bad)}
+  .alarme{border-left:2px solid var(--bad)}
   .vazio{color:var(--muted);font-size:14px}
-  .aviso{min-height:20px;font-size:13px;margin-top:12px;color:var(--muted)}
+  .aviso{min-height:20px;font:13px/1.5 var(--mono);margin-top:12px;color:var(--muted)}
   .aviso.bom{color:var(--good)} .aviso.ruim{color:var(--bad)}
   form{max-width:420px}
-  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 5px}
-  input{width:100%;font:inherit;padding:12px;border-radius:9px;
-        border:1px solid var(--grey);background:#000;color:var(--fg)}
+  label{display:block;font:11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:16px 0 6px}
+  input{width:100%;font:inherit;padding:12px;border-radius:8px;
+        border:1px solid rgba(255,255,255,.14);background:rgba(30,30,30,.6);color:var(--fg)}
+  input:focus{outline:none;box-shadow:0 0 0 3px rgba(124,107,255,.35)}
+  form button{margin-top:18px;width:100%}
   .nota{font-size:13px;color:var(--muted);border-left:2px solid var(--tech);padding-left:11px;margin:18px 0}
 </style>
 </head>
 <body>
 
 <section id="config" hidden>
-  <h1>Escritório — configurar</h1>
+  <div class="nav"><div class="marca"><i>J</i><span>Escritório</span></div></div>
+  <p class="rotulo">configurar este aparelho</p>
   <p class="nota">Estes três dados ficam <b>só neste aparelho</b>. Nada deles vai
   parar no site: por isso esta página pode ser pública sem dizer de quem é o escritório.</p>
   <form id="form-config">
@@ -80,7 +109,9 @@
 </section>
 
 <section id="trava" hidden>
-  <h1>Escritório</h1>
+  <div class="nav"><div class="marca"><i>J</i><span>Escritório</span></div></div>
+  <p class="rotulo">inteligência operacional</p>
+  <h1>Escritório<span class="b">J.A.R.V.I.S.</span></h1>
   <form id="form-trava">
     <label for="senha">senha do escritório</label>
     <!-- autocomplete="off": com "current-password" o iOS OFERECE guardar a senha no
@@ -108,14 +139,15 @@
 </section>
 
 <section id="painel" hidden>
-  <header>
-    <h1>Escritório</h1>
-    <span class="idade" id="idade"></span>
+  <header class="nav">
+    <div class="marca"><i>J</i><span>Escritório</span></div>
     <span class="barra">
       <button id="recarregar">atualizar</button>
       <button id="trancar">trancar</button>
     </span>
   </header>
+  <p class="rotulo"><span class="idade" id="idade"></span></p>
+  <h1>Escritório<span class="b">J.A.R.V.I.S.</span></h1>
   <div id="resumo"></div>
   <h2>esperando decisão</h2>
   <div id="fila"></div>
