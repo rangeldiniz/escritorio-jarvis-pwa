@@ -8,7 +8,7 @@
 // O `activate` apaga todo cache com nome diferente — é isso que faz o app já
 // instalado no iPhone largar a versão velha. Sem subir, ele serve o arquivo
 // antigo para sempre e a correção nunca chega no aparelho.
-const CASCA = 'escritorio-casca-v7';
+const CASCA = 'escritorio-casca-v8';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'cofre.js', 'manifest.webmanifest',
                   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
@@ -37,7 +37,9 @@ self.addEventListener('fetch', (e) => {
   const u = new URL(e.request.url);
   if (u.origin !== self.location.origin) return;   // GitHub passa direto, sempre
   e.respondWith(
-    fetch(e.request)
+    // `no-cache` = sempre pergunta ao servidor (ETag, barato). O fetch padrão respeita o
+    // cache HTTP de 10 min do Pages, e a versão nova ficava presa atrás dele (23/09).
+    fetch(e.request, { cache: 'no-cache' })
       .then((r) => {
         if (r && r.ok) {
           const copia = r.clone();

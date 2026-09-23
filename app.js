@@ -28,7 +28,7 @@ const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k))
 // ── GitHub ────────────────────────────────────────────────────────────────
 // Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
 // serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
-const VERSAO_APP = 'v7';
+const VERSAO_APP = 'v8';
 
 async function gh(caminho, opcoes = {}) {
   const c = lido(CFG);
@@ -312,5 +312,14 @@ addEventListener('DOMContentLoaded', () => {
     ? `app ${VERSAO_APP} — lendo ${cfgAtual.dono}/${cfgAtual.repo}`
     : `app ${VERSAO_APP}`;
 
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    // Casca nova assumiu → recarrega UMA vez para mostrar a versão nova já nesta abertura.
+    // Só com o painel fechado: a chave vive na memória, recarregar com ele aberto
+    // obrigaria a digitar a senha de novo no meio de uma decisão.
+    const tinha = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (tinha && $('#painel').hidden) location.reload();
+    });
+    navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {});
+  }
 });
