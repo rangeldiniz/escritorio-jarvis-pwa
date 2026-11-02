@@ -28,7 +28,7 @@ const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k))
 // ── GitHub ────────────────────────────────────────────────────────────────
 // Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
 // serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
-const VERSAO_APP = 'v10';
+const VERSAO_APP = 'v11';
 
 async function gh(caminho, opcoes = {}) {
   const c = lido(CFG);
@@ -247,7 +247,11 @@ function organograma(e) {
         ['pode sozinho', c.alcada],
         ['cadência', c.cadencia],
         ['última rodada', horas(c.idade_h) + (c.tol_h ? ` · tolera ${c.tol_h}h` : '')],
-        ['rodadas', `${c.rodadas ?? 0} no total · ${c.fracas ?? 0} fraca(s)`],
+        // v11: entrega que foi para o dono julgar não é fraca — um campo, um fato. É
+        // HISTÓRICO (a rodada não sabe se já foi julgada), por isso fica na ficha e não na
+        // faixa, que só mostra o estado de agora.
+        ['rodadas', `${c.rodadas ?? 0} no total · ${c.fracas ?? 0} fraca(s)`
+          + (c.aguardando ? ` · ${c.aguardando} entregue(s) para o dono julgar` : '')],
         ['entrega', c.moeda],
         ['equipe', (c.equipe || []).map(legivel).join(', ') || 'nenhuma'],
         ['acesso', poderes(ficheiro[c.agente])],
