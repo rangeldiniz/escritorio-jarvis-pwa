@@ -28,7 +28,7 @@ const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k))
 // ── GitHub ────────────────────────────────────────────────────────────────
 // Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
 // serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
-const VERSAO_APP = 'v9';
+const VERSAO_APP = 'v10';
 
 async function gh(caminho, opcoes = {}) {
   const c = lido(CFG);
@@ -167,27 +167,57 @@ async function decidir(acao, ids, motivo = '') {
 // ── tela ──────────────────────────────────────────────────────────────────
 const esc = (s) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 
-// ── organograma (02/11) ───────────────────────────────────────────────────
+// ── organograma (02/11, v10) ──────────────────────────────────────────────
 // Dono → J.A.R.V.I.S. → setor → cadeira (diretor titular) → equipe. A fonte é a
-// DIRETORIA.tsv (colunas 4 e 8) e a lista REAL de agentes em ~/.claude/agents.
+// tabela da diretoria (colunas 4 e 8) e a lista REAL de agentes em ~/.claude/agents.
 // Todo agente ganha cadeira: quem não está na tabela aparece no setor que a ficha
 // dele declara, marcado "sem cargo" e respondendo ao J.A.R.V.I.S. — o desenho não
 // inventa um chefe que a tabela não deu.
+// v10: tocar na cadeira abre a ficha; setor recolhe; problema vem ESCRITO no topo
+// (cor sozinha não conta: borda vermelha no fim da rolagem ninguém vê).
 const SETOR = {
   comercial: 'Comercial', producao: 'Produção — alunos', conteudo: 'Conteúdo',
   financeiro: 'Financeiro', qualidade: 'Qualidade', conhecimento: 'Conhecimento',
   infra: 'Infraestrutura', mercado: 'Mercado', geral: 'Gabinete do CEO',
 };
 const ORDEM_SETOR = Object.keys(SETOR);
+// O nome técnico vem sem acento (é nome de arquivo); a tela devolve o acento.
+const ACENTO = {
+  trafego: 'Tráfego', midia: 'Mídia', aquisicao: 'Aquisição', aperfeicoamento: 'Aperfeiçoamento',
+  jarvis: 'J.A.R.V.I.S.', followup: 'Follow-up', nutricao: 'Nutrição', conteudo: 'Conteúdo',
+};
+const legivel = (n) => String(n).split('-')
+  .map((p) => ACENTO[p] ?? (p.charAt(0).toUpperCase() + p.slice(1)))
+  .join(' ');
+// Nome do cargo também vem da tabela sem acento ("Diretor de Nutricao").
+const cargo = (n) => String(n).split(' ').map((p) => ACENTO[p.toLowerCase()] ?? p).join(' ');
 
-function cadeira(nome, papel, cls = '') {
-  return `<div class="cadeira ${cls}"><i>🪑</i><span><b>${esc(nome)}</b><small>${esc(papel)}</small></span></div>`;
+const horas = (h) => h == null ? 'sem registro' : h < 1 ? 'há menos de 1h'
+  : h < 48 ? `há ${h}h` : `há ${Math.round(h / 24)} dias`;
+
+function ficha(linhas) {
+  return `<dl class="ficha">${linhas.filter(([, v]) => v !== '' && v != null)
+    .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+}
+
+function cadeira(titulo, papel, cls = '', corpo = '', selo = '') {
+  const cara = `<i>🪑</i><span><b>${esc(titulo)}</b><small>${esc(papel)}</small></span>${selo}`;
+  return corpo
+    ? `<details class="cadeira ${cls}"><summary>${cara}</summary>${corpo}</details>`
+    : `<div class="cadeira ${cls}">${cara}</div>`;
+}
+
+function poderes(a) {
+  if (!a) return '';
+  if (a.so_relatorio) return 'só relatório — não altera nada';
+  return a.pode_editar ? 'pode editar arquivo' : 'escreve arquivo novo, não edita';
 }
 
 function organograma(e) {
   const dir = e.diretoria || [];
   const ags = e.agentes || [];
   if (!dir.length && !ags.length) return '<p class="vazio">SEM LEITURA da diretoria</p>';
+  const ficheiro = Object.fromEntries(ags.map((a) => [a.nome, a]));
   const sentados = new Set();
   const setores = {};
   const setor = (k) => (setores[SETOR[k] ? k : 'geral'] ??= { cargos: [], soltos: [] });
@@ -199,32 +229,73 @@ function organograma(e) {
   }
   for (const a of ags) if (!sentados.has(a.nome)) setor(a.dep).soltos.push(a);
 
-  let n = 0;
+  const mudos = dir.filter((c) => c.mudo === true);
+  const vagas = dir.filter((c) => !c.agente || c.agente === '-');
+  const soltos = Object.values(setores).flatMap((s) => s.soltos);
+
+  let total = 0;
   const html = ORDEM_SETOR.filter((k) => setores[k]).map((k) => {
     const s = setores[k];
+    let n = 0, ruim = 0;
     const cargos = s.cargos.map((c) => {
       const vago = !c.agente || c.agente === '-';
       const st = c.mudo === true ? 'mudo' : c.mudo === false ? 'ok' : '';
+      if (c.mudo === true) ruim++;
       n += vago ? 0 : 1;
+      const corpo = ficha([
+        ['função', c.funcao],
+        ['pode sozinho', c.alcada],
+        ['cadência', c.cadencia],
+        ['última rodada', horas(c.idade_h) + (c.tol_h ? ` · tolera ${c.tol_h}h` : '')],
+        ['rodadas', `${c.rodadas ?? 0} no total · ${c.fracas ?? 0} fraca(s)`],
+        ['entrega', c.moeda],
+        ['equipe', (c.equipe || []).map(legivel).join(', ') || 'nenhuma'],
+        ['acesso', poderes(ficheiro[c.agente])],
+        ['agente', vago ? '' : c.agente],
+      ]);
+      const selo = c.mudo === true ? '<em class="selo ruim">mudo</em>'
+        : c.mudo == null && !vago ? '<em class="selo">sem régua</em>' : '';
       const equipe = (c.equipe || []).map((x) => {
         n++;
-        return `<li>${cadeira(x, 'responde a ' + c.agente)}</li>`;
+        return `<li>${cadeira(legivel(x), 'responde a ' + legivel(c.agente), '', ficha([
+          ['chefe', `${legivel(c.agente)} · ${cargo(c.nome)}`],
+          ['setor faz', c.funcao],
+          ['acesso', poderes(ficheiro[x])],
+          ['agente', x],
+        ]))}</li>`;
       }).join('');
-      return `<li>${cadeira(vago ? 'VAGA' : c.agente, c.nome + ' · responde ao J.A.R.V.I.S.', 'diretor ' + st + (vago ? ' vaga' : ''))}
+      return `<li>${cadeira(cargo(c.nome), (vago ? 'VAGA' : legivel(c.agente)) + ' · responde ao J.A.R.V.I.S.',
+        'diretor ' + st + (vago ? ' vaga' : ''), corpo, selo)}
         ${equipe ? `<ul>${equipe}</ul>` : ''}</li>`;
     }).join('');
-    const soltos = s.soltos.map((a) => {
+    const sol = s.soltos.map((a) => {
       n++;
-      return `<li>${cadeira(a.nome, 'sem cargo na diretoria · responde ao J.A.R.V.I.S.', 'solto')}</li>`;
+      return `<li>${cadeira(legivel(a.nome), 'sem cargo na diretoria · responde ao J.A.R.V.I.S.', 'solto', ficha([
+        ['chefe', 'J.A.R.V.I.S. (sem cargo na diretoria)'],
+        ['acesso', poderes(a)],
+        ['agente', a.nome],
+      ]))}</li>`;
     }).join('');
-    return `<li class="setor"><p class="nome-setor">${esc(SETOR[k])}</p><ul>${cargos}${soltos}</ul></li>`;
+    total += n;
+    return `<li class="setor"><details${ruim ? ' open' : ''}><summary class="nome-setor">${esc(SETOR[k])}
+      <span>${n} cadeira(s)${ruim ? ` · <em class="selo ruim">${ruim} mudo(s)</em>` : ''}</span></summary>
+      <ul>${cargos}${sol}</ul></details></li>`;
   }).join('');
 
-  return `<div class="organo">
+  const alertas = [
+    mudos.length && `<b class="ruim">${mudos.length} diretor(es) mudo(s):</b> ${esc(mudos.map((c) => legivel(c.agente)).join(', '))}`,
+    vagas.length && `<b class="ruim">${vagas.length} cadeira(s) vaga(s):</b> ${esc(vagas.map((c) => cargo(c.nome)).join(', '))}`,
+    soltos.length && `<b>${soltos.length} agente(s) sem cargo:</b> ${esc(soltos.map((a) => legivel(a.nome)).join(', '))}`,
+  ].filter(Boolean);
+  const faixa = `<div class="faixa ${mudos.length || vagas.length ? 'ruim' : 'bom'}">
+    ${alertas.map((x) => `<p>${x}</p>`).join('')}
+    ${mudos.length || vagas.length ? '' : '<p class="ok">✓ nenhum diretor mudo, nenhuma cadeira vaga</p>'}
+    <small>${total} cadeira(s) ocupada(s) · ${ags.length} agente(s) na frota · toque numa cadeira para ver a ficha</small></div>`;
+
+  return `${faixa}<div class="organo">
     ${cadeira('Dono', 'dono da empresa', 'topo')}
     <ul><li>${cadeira('J.A.R.V.I.S.', 'CEO · responde ao dono', 'topo')}
-      <ul>${html}</ul></li></ul>
-    <p class="vazio">${n} cadeira(s) ocupada(s) · ${ags.length} agente(s) na frota</p></div>`;
+      <ul>${html}</ul></li></ul></div>`;
 }
 
 function pintar() {

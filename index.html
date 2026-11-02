@@ -103,6 +103,31 @@
   .cadeira.vaga,.cadeira.solto{border-style:dashed}
   .organo .setor::before{display:none}
   .nome-setor{margin:14px 0 2px;font:500 11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--tech-soft)}
+  /* v10: cadeira e setor abrem ao toque (<details>, sem JS); a seta padrão some e vira ▸/▾ */
+  .organo summary{list-style:none;cursor:pointer}
+  .organo summary::-webkit-details-marker{display:none}
+  details.cadeira{display:block;padding:0}
+  details.cadeira>summary{display:flex;align-items:center;gap:10px;padding:9px 12px}
+  details.cadeira>summary::after{content:"▸";margin-left:auto;color:var(--muted);font-size:12px}
+  details.cadeira[open]>summary::after{content:"▾"}
+  details.cadeira[open]{border-color:rgba(124,107,255,.35)}
+  summary.nome-setor{display:flex;align-items:baseline;gap:8px;padding:6px 0}
+  summary.nome-setor::before{content:"▸";color:var(--muted)}
+  details[open]>summary.nome-setor::before{content:"▾"}
+  summary.nome-setor span{font-weight:400;letter-spacing:.06em;color:var(--muted);text-transform:none}
+  .ficha{margin:0;padding:2px 12px 12px;font-size:13.5px;border-top:1px solid var(--linha)}
+  .ficha dt{margin-top:10px;font:10.5px/1.5 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .ficha dd{margin:2px 0 0;color:var(--cream);overflow-wrap:anywhere}
+  .selo{font:normal 10.5px/1 var(--mono);padding:4px 7px;border-radius:999px;border:1px solid var(--linha);color:var(--muted);flex:none;white-space:nowrap}
+  .selo.ruim{color:var(--bad);border-color:rgba(203,135,133,.4)}
+  .faixa{border:1px solid var(--linha);border-left:2px solid var(--good);border-radius:12px;padding:12px 14px;margin-bottom:14px;
+    background:var(--vidro);font-size:14px}
+  .faixa.ruim{border-left-color:var(--bad)}
+  .faixa p{margin:0 0 6px}
+  .faixa b{color:var(--white);font-weight:500}
+  .faixa b.ruim{color:var(--bad)}
+  .faixa .ok{color:var(--good)}
+  .faixa small{font:11px/1.5 var(--mono);color:var(--muted)}
 </style>
 </head>
 <body>
