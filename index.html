@@ -74,7 +74,16 @@
   .acao small,.alarme small{font:11.5px/1.5 var(--mono);color:var(--muted)}
   .botoes{display:flex;gap:9px;margin-top:14px}
   .botoes button{flex:1}
-  .acao.enviada{opacity:.45}
+  .acao.enviada,.decisao.enviada{opacity:.45}
+  /* v13: decidir na cadeira do J.A.R.V.I.S. — as opções já vêm com "A)", a lista não numera de novo */
+  .decisao{padding:12px 0;border-bottom:1px solid var(--linha);font-size:13.5px}
+  .decisao:last-child{border-bottom:0}
+  .decisao b{display:block;color:var(--white);font-weight:500;overflow-wrap:anywhere}
+  .decisao small{font:11px/1.5 var(--mono);color:var(--bad)}
+  .decisao ol{list-style:none;margin:8px 0 0;padding:0}
+  .decisao li{margin:6px 0;color:var(--cream);overflow-wrap:anywhere}
+  .decisao .reco{margin:8px 0 0;color:var(--muted);overflow-wrap:anywhere}
+  .decisao .botoes{flex-wrap:wrap}
   .alarme{border-left:2px solid var(--bad)}
   .vazio{color:var(--muted);font-size:14px}
   .aviso{min-height:20px;font:13px/1.5 var(--mono);margin-top:12px;color:var(--muted)}

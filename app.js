@@ -28,7 +28,8 @@ const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k))
 // ── GitHub ────────────────────────────────────────────────────────────────
 // Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
 // serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
-const VERSAO_APP = 'v12';
+const VERSAO_APP = 'v13';
+const DADO_VELHO_MIN = 60;            // decisão do dono, 02/11: dado com mais de 1h fica vermelho
 
 async function gh(caminho, opcoes = {}) {
   const c = lido(CFG);
@@ -144,13 +145,23 @@ async function abrir(senha) {
 }
 
 // ── decidir ───────────────────────────────────────────────────────────────
-async function decidir(acao, ids, motivo = '') {
+// v13: o aparelho é MEDIDO, não declarado. Até a v12 toda decisão saía como 'iphone', e
+// depois que o token do iPhone venceu ninguém conseguia dizer de onde vinham as decisões
+// que seguiam chegando. O iPad novo se apresenta como Mac — o toque é o que o separa.
+function aparelho() {
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return 'iphone';
+  if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ipad';
+  return /Macintosh/.test(ua) ? 'mac' : 'outro';
+}
+
+async function decidir(acao, ids, motivo = '', extra = {}) {
   const id = crypto.randomUUID();
   const agora = Math.floor(Date.now() / 1000);
   // `id` de uso único e `vale_ate` são o par que impede repetição: o Mac recusa
   // id já visto E recusa decisão vencida. Sem os dois, um arquivo capturado
   // poderia ser reenviado depois e aplicado de novo.
-  const corpo = { id, acao, ids, motivo, feito_em: agora, vale_ate: agora + VALIDADE_S, de: 'iphone' };
+  const corpo = { ...extra, id, acao, ids, motivo, feito_em: agora, vale_ate: agora + VALIDADE_S, de: aparelho() };
   const env = await cofre.cifrar(corpo, chaves.cifra, cofre.AAD_DECISAO);
   env.hmac = await cofre.assinar(env, chaves.assina);
   await gh(`contents/decisoes/${id}.json`, {
@@ -225,8 +236,8 @@ function filaDe(tarefas, nomes) {
   const t = tarefas.filter((x) => nomes.includes(x.dono));
   return {
     n: t.length,
-    dono: t.filter((x) => x.depende === 'rangel').length,
-    txt: t.map((x) => `${x.id} (${x.depende === 'rangel' ? 'espera o dono' : 'com o setor'}, ${x.dias ?? '?'} dias)`).join(', '),
+    dono: t.filter((x) => x.depende === 'dono').length,
+    txt: t.map((x) => `${x.id} (${x.depende === 'dono' ? 'espera o dono' : 'com o setor'}, ${x.dias ?? '?'} dias)`).join(', '),
   };
 }
 
@@ -234,6 +245,53 @@ function poderes(a) {
   if (!a) return '';
   if (a.so_relatorio) return 'só relatório — não altera nada';
   return a.pode_editar ? 'pode editar arquivo' : 'escreve arquivo novo, não edita';
+}
+
+// v13: decidir NA cadeira do J.A.R.V.I.S. O botão leva só o NÚMERO da opção; o Mac relê o
+// texto na própria mesa e grava com `mesa.py decidir` — o app não consegue registrar uma
+// escolha que não estava entre as opções.
+const letra = (o, i) => (/^([A-Z])\)/.exec(o) || [])[1] || String(i + 1);
+
+function decisoes(ds) {
+  return ds.map((d) => `<div class="decisao" data-mesa="${esc(d.id)}">
+    <b>${esc(d.id)} · ${esc(d.assunto)}</b>
+    ${d.vencida_dias ? `<small>prazo vencido há ${esc(d.vencida_dias)} dias</small>` : ''}
+    <ol>${(d.opcoes || []).map((o) => `<li>${esc(o)}</li>`).join('')}</ol>
+    ${d.recomendacao ? `<p class="reco">recomendação do J.A.R.V.I.S.: ${esc(d.recomendacao)}</p>` : ''}
+    ${(d.opcoes || []).length ? `<div class="botoes">${d.opcoes.map((o, i) =>
+      `<button class="sim" data-opcao="${i}">decidir ${esc(letra(o, i))}</button>`).join('')}</div>`
+      : '<p class="reco">sem opções legíveis — decida no Mac</p>'}
+  </div>`).join('');
+}
+
+// v13: o que a régua MEDIU por semana, da mais velha para a de agora. Minuto é minuto; as
+// outras moedas ficam numa linha própria (um campo, um fato — somar defeito com minuto não
+// significa nada).
+const BARRA = '▁▂▃▄▅▆▇█';
+const UNIDADE = { pessoa: 'pessoa(s)', defeito: 'defeito(s)', dinheiro: 'R$' };
+const ddmm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+function semanas(ss) {
+  if (!ss || !ss.some((s) => s.n)) return { min: 'nenhuma rodada medida nas últimas 6 semanas', outras: '' };
+  const teto = Math.max(...ss.map((s) => s.minutos), 1);
+  const linha = ss.map((s) => BARRA[Math.round((s.minutos / teto) * (BARRA.length - 1))]).join('');
+  const min = ss.some((s) => s.minutos)
+    ? `${linha}  ${ss.map((s) => `${ddmm(s.inicio)}: ${s.minutos}`).join(' · ')} (min)`
+    : 'nenhum minuto medido (as medidas deste cargo são em outra moeda)';
+  const outras = ss.filter((s) => Object.keys(s.outras).length).map((s) => `${ddmm(s.inicio)}: ${
+    Object.entries(s.outras).map(([m, v]) => m === 'dinheiro'
+      ? `R$ ${v.toLocaleString('pt-BR')}` : `${v} ${UNIDADE[m] || m}`).join(', ')}`).join(' · ');
+  return { min, outras };
+}
+
+// v13: fila REAL de rascunhos de treino sem julgamento. O "N para o dono julgar" das rodadas
+// é histórico; julgado é a linha que o lançador grava no placar. É ESTADO, pode ir na faixa.
+function filaReal(f) {
+  if (!f) return 'SEM LEITURA do placar do treino';
+  if (!f.parados.length) return `nenhum — os ${f.aguardando} rascunho(s) entregues já têm linha no placar`;
+  return `${f.parados.length} sem linha no placar (${f.julgados} de ${f.aguardando} já julgados) · `
+    + `idades em dias: ${f.parados.map((p) => p.dias ?? '?').join(', ')} · premissa: casamento por tipo `
+    + 'e data; versão substituída (v2 trocada pela v3) segue contando como parada';
 }
 
 function organograma(e) {
@@ -277,6 +335,7 @@ function organograma(e) {
       const st = c.mudo === true ? 'mudo' : c.mudo === false ? 'ok' : '';
       if (c.mudo === true) ruim++;
       n += vago ? 0 : 1;
+      const sem = semanas(c.semanas);
       const corpo = ficha([
         ['função', c.funcao],
         ['pode sozinho', c.alcada],
@@ -286,8 +345,11 @@ function organograma(e) {
         // HISTÓRICO (a rodada não sabe se já foi julgada), por isso fica na ficha e não na
         // faixa, que só mostra o estado de agora.
         ['rodadas', `${c.rodadas ?? 0} no total · ${c.fracas ?? 0} fraca(s)`
-          + (c.aguardando ? ` · ${c.aguardando} entregue(s) para o dono julgar` : '')
+          + (c.aguardando ? ` · ${c.aguardando} entregue(s) para o dono julgar (histórico)` : '')
           + (c.bloqueado ? ` · ${c.bloqueado} bloqueada(s) esperando o dono decidir` : '')],
+        ['para julgar agora', c.id === 'treino' ? filaReal(e.fila_julgar) : ''],
+        ['minutos medidos por semana', sem.min],
+        ['outras medidas por semana', sem.outras],
         ['o titular', vago ? '' : producao(c.por_agente?.[c.agente])],
         ['na mesa', fila.n ? fila.txt : (mesa ? 'nada aberto' : 'SEM LEITURA da mesa')],
         ['entrega', c.moeda],
@@ -335,8 +397,18 @@ function organograma(e) {
   }).join('');
 
   const decis = mesa?.decisoes || [];
-  const doDono = tarefas.filter((x) => x.depende === 'rangel');
+  const doDono = tarefas.filter((x) => x.depende === 'dono');
+  const fila = e.fila_julgar;                // null = SEM LEITURA
+  const fc = e.feedback_clinico;             // null = SEM LEITURA (cache > 2h ou nunca medido)
+  const velho = idadeMin() > DADO_VELHO_MIN;
   const alertas = [
+    velho && `<b class="ruim">Dado de ${idadeMin()} min:</b> o Mac pode ter parado de publicar — o que está abaixo é foto velha`,
+    fc?.parados?.length && `<b class="ruim">${fc.parados.length} feedback(s) CLÍNICO(s) com análise pronta e sem tratar há mais de 24h:</b> `
+      + esc(fc.parados.map((p) => `resposta ${p.resposta} (${p.idade_h}h)`).join(', ')),
+    !fc && '<b>SEM LEITURA do feedback clínico</b>',
+    fila?.parados?.length && `<b class="espera">${fila.parados.length} rascunho(s) de treino sem julgamento no placar</b> · `
+      + `o mais velho há ${esc(fila.parados[0].dias ?? '?')} dias`,
+    !fila && '<b>SEM LEITURA do placar do treino</b>',
     (decis.length || doDono.length) && `<b class="espera">Esperando o dono decidir:</b> ${[
       decis.length && `${decis.length} decisão(ões) na mesa (${esc(decis.map((d) => d.id).join(', '))})`,
       doDono.length && `${doDono.length} tarefa(s) que dependem dele (${esc(doDono.map((t) => t.id).join(', '))})`,
@@ -347,7 +419,7 @@ function organograma(e) {
     vagas.length && `<b class="ruim">${vagas.length} cadeira(s) vaga(s):</b> ${esc(vagas.map((c) => cargo(c.nome)).join(', '))}`,
     soltos.length && `<b>${soltos.length} agente(s) sem cargo:</b> ${esc(soltos.map((a) => legivel(a.nome)).join(', '))}`,
   ].filter(Boolean);
-  const faixa = `<div class="faixa ${mudos.length || vagas.length || divergentes.length ? 'ruim' : 'bom'}">
+  const faixa = `<div class="faixa ${mudos.length || vagas.length || divergentes.length || velho || fc?.parados?.length ? 'ruim' : 'bom'}">
     ${alertas.map((x) => `<p>${x}</p>`).join('')}
     ${mudos.length || vagas.length ? '' : '<p class="ok">✓ nenhum diretor mudo, nenhuma cadeira vaga</p>'}
     <small>${total} cadeira(s) ocupada(s) · ${ags.length} agente(s) na frota · toque numa cadeira para ver a ficha</small></div>`;
@@ -355,19 +427,29 @@ function organograma(e) {
   return `${faixa}<div class="organo">
     ${cadeira('Dono', 'dono da empresa', 'topo')}
     <ul><li>${cadeira('J.A.R.V.I.S.', 'CEO · responde ao dono', 'topo',
-      decis.length ? ficha(decis.map((d) => [d.id, `${d.assunto}${d.vencida_dias ? ` — vencida há ${d.vencida_dias} dias` : ''}`])) : '',
+      decis.length ? `<div class="ficha">${decisoes(decis)}</div>` : '',
       decis.length ? `<em class="selo espera">${decis.length} decisão(ões) paradas</em>` : '')}
       <ul>${html}</ul></li></ul></div>`;
+}
+
+// v13: idade do DADO na tela, contada do momento em que o Mac publicou. Anda sozinha com o
+// painel aberto — um número congelado no momento da abertura mentiria justamente quando o
+// dono deixa o app aberto e o Mac para de publicar.
+const idadeMin = () => Math.round((Date.now() / 1000 - (estado?.publicado_em || 0)) / 60);
+
+function pintarIdade() {
+  if (!estado) return;
+  const n = idadeMin();
+  $('#idade').textContent = n < 120 ? `dado de ${n} min` : `dado de ${Math.round(n / 60)}h`;
+  $('#idade').className = n > DADO_VELHO_MIN ? 'idade velha' : 'idade';
 }
 
 function pintar() {
   const e = estado.escritorio || {};
   const pendentes = (estado.acoes || []).filter((a) => a.estado === 'simulada');
   const acesos = (e.alarmes && e.alarmes.acesos) || [];
-  const idade = Math.round((Date.now() / 1000 - (estado.publicado_em || 0)) / 60);
 
-  $('#idade').textContent = `foto de ${idade} min atrás`;
-  $('#idade').className = idade > 10 ? 'idade velha' : 'idade';
+  pintarIdade();
 
   $('#resumo').innerHTML = [
     ['sessões', (estado.sessoes || []).length],
@@ -465,6 +547,27 @@ addEventListener('DOMContentLoaded', () => {
       aviso('não consegui enviar: ' + err.message, 'ruim');
     }
   });
+
+  $('#organo').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-opcao]');
+    if (!b) return;
+    const caixa = b.closest('.decisao');
+    const d = (estado?.escritorio?.mesa?.decisoes || []).find((x) => x.id === caixa.dataset.mesa);
+    const i = Number(b.dataset.opcao);
+    if (!d || !d.opcoes[i]) return aviso('essa decisão não está mais na foto — toque em atualizar', 'ruim');
+    if (!confirm(`Decidir ${d.id} pela opção ${letra(d.opcoes[i], i)}?\n\n${d.opcoes[i]}`)) return;
+    adiarTrancamento();
+    caixa.querySelectorAll('button').forEach((x) => (x.disabled = true));
+    try {
+      await decidir('mesa_decidir', [], '', { mesa_id: d.id, opcao: i });
+      caixa.classList.add('enviada');
+      aviso(`${d.id} → ${letra(d.opcoes[i], i)} enviada — o Mac grava na mesa em até 1 min (vale por 15)`, 'bom');
+    } catch (err) {
+      caixa.querySelectorAll('button').forEach((x) => (x.disabled = false));
+      aviso('não consegui enviar: ' + err.message, 'ruim');
+    }
+  });
+  setInterval(pintarIdade, 30000);
 
   $('#recarregar').addEventListener('click', async () => {
     if (!chaves) return trancar();
