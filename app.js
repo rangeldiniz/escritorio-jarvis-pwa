@@ -28,7 +28,7 @@ const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k))
 // ── GitHub ────────────────────────────────────────────────────────────────
 // Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
 // serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
-const VERSAO_APP = 'v11';
+const VERSAO_APP = 'v12';
 
 async function gh(caminho, opcoes = {}) {
   const c = lido(CFG);
@@ -201,10 +201,33 @@ function ficha(linhas) {
 }
 
 function cadeira(titulo, papel, cls = '', corpo = '', selo = '') {
-  const cara = `<i>🪑</i><span><b>${esc(titulo)}</b><small>${esc(papel)}</small></span>${selo}`;
+  // v12: selos numa linha própria — com dois selos ao lado, o título virava "Diretor / de / Alunos".
+  const cara = `<i>🪑</i><span class="txt"><b>${esc(titulo)}</b><small>${esc(papel)}</small></span>`
+    + (selo ? `<span class="selos">${selo}</span>` : '');
   return corpo
     ? `<details class="cadeira ${cls}"><summary>${cara}</summary>${corpo}</details>`
     : `<div class="cadeira ${cls}">${cara}</div>`;
+}
+
+// v12: produção de UM agente (as rodadas creditadas a ele por nome). Fraca, para julgar e
+// bloqueada são fatos diferentes — cada um no seu número.
+function producao(p) {
+  if (!p) return 'nenhuma rodada registrada em nome dele';
+  return [`${p.rodadas} rodada(s)`, `${p.creditadas} creditada(s)`,
+    p.fracas && `${p.fracas} fraca(s)`, p.aguardando && `${p.aguardando} para o dono julgar`,
+    p.bloqueado && `${p.bloqueado} bloqueada(s) esperando o dono`,
+    `última ${horas(p.ult_h)}`].filter(Boolean).join(' · ');
+}
+
+// v12: a fila da mesa na cadeira. A tarefa tem dono por cargo OU por agente; quem depende
+// do dono aparece como "espera o dono", o resto como "com o setor".
+function filaDe(tarefas, nomes) {
+  const t = tarefas.filter((x) => nomes.includes(x.dono));
+  return {
+    n: t.length,
+    dono: t.filter((x) => x.depende === 'rangel').length,
+    txt: t.map((x) => `${x.id} (${x.depende === 'rangel' ? 'espera o dono' : 'com o setor'}, ${x.dias ?? '?'} dias)`).join(', '),
+  };
 }
 
 function poderes(a) {
@@ -218,6 +241,17 @@ function organograma(e) {
   const ags = e.agentes || [];
   if (!dir.length && !ags.length) return '<p class="vazio">SEM LEITURA da diretoria</p>';
   const ficheiro = Object.fromEntries(ags.map((a) => [a.nome, a]));
+  const mesa = e.mesa || null;               // null = SEM LEITURA, nunca "mesa limpa"
+  const tarefas = mesa?.tarefas || [];
+  // v12: a ficha do agente DECLARA um setor; a tabela da diretoria o SENTA em outro. Só
+  // acusa quando a ficha declarou (dep_origem) — setor inferido não é contradição.
+  const divergentes = [];
+  const diverge = (x, c) => {
+    const a = ficheiro[x];
+    if (!a || a.dep_origem !== 'declarado' || !a.dep || a.dep === c.dep) return '';
+    divergentes.push(`${legivel(x)} (ficha: ${SETOR[a.dep] || a.dep} · tabela: ${SETOR[c.dep] || c.dep})`);
+    return `<em class="selo ruim">ficha diz ${esc(SETOR[a.dep] || a.dep)}</em>`;
+  };
   const sentados = new Set();
   const setores = {};
   const setor = (k) => (setores[SETOR[k] ? k : 'geral'] ??= { cargos: [], soltos: [] });
@@ -239,6 +273,7 @@ function organograma(e) {
     let n = 0, ruim = 0;
     const cargos = s.cargos.map((c) => {
       const vago = !c.agente || c.agente === '-';
+      const fila = filaDe(tarefas, [c.id, c.agente, ...(c.equipe || [])]);
       const st = c.mudo === true ? 'mudo' : c.mudo === false ? 'ok' : '';
       if (c.mudo === true) ruim++;
       n += vago ? 0 : 1;
@@ -251,22 +286,35 @@ function organograma(e) {
         // HISTÓRICO (a rodada não sabe se já foi julgada), por isso fica na ficha e não na
         // faixa, que só mostra o estado de agora.
         ['rodadas', `${c.rodadas ?? 0} no total · ${c.fracas ?? 0} fraca(s)`
-          + (c.aguardando ? ` · ${c.aguardando} entregue(s) para o dono julgar` : '')],
+          + (c.aguardando ? ` · ${c.aguardando} entregue(s) para o dono julgar` : '')
+          + (c.bloqueado ? ` · ${c.bloqueado} bloqueada(s) esperando o dono decidir` : '')],
+        ['o titular', vago ? '' : producao(c.por_agente?.[c.agente])],
+        ['na mesa', fila.n ? fila.txt : (mesa ? 'nada aberto' : 'SEM LEITURA da mesa')],
         ['entrega', c.moeda],
         ['equipe', (c.equipe || []).map(legivel).join(', ') || 'nenhuma'],
         ['acesso', poderes(ficheiro[c.agente])],
         ['agente', vago ? '' : c.agente],
       ]);
-      const selo = c.mudo === true ? '<em class="selo ruim">mudo</em>'
-        : c.mudo == null && !vago ? '<em class="selo">sem régua</em>' : '';
+      const selo = (c.mudo === true ? '<em class="selo ruim">mudo</em>'
+        : c.mudo == null && !vago ? '<em class="selo">sem régua</em>' : '')
+        + (fila.dono ? `<em class="selo espera">${fila.dono} na mesa do dono</em>`
+          : fila.n ? `<em class="selo">${fila.n} na mesa</em>` : '')
+        + (vago ? '' : diverge(c.agente, c));
       const equipe = (c.equipe || []).map((x) => {
         n++;
+        const p = c.por_agente?.[x];
+        const fx = filaDe(tarefas, [x]);
+        const sx = (p ? '' : '<em class="selo">sem rodada</em>')
+          + (fx.n ? `<em class="selo${fx.dono ? ' espera' : ''}">${fx.n} na mesa</em>` : '')
+          + diverge(x, c);
         return `<li>${cadeira(legivel(x), 'responde a ' + legivel(c.agente), '', ficha([
           ['chefe', `${legivel(c.agente)} · ${cargo(c.nome)}`],
           ['setor faz', c.funcao],
+          ['produção', producao(p)],
+          ['na mesa', fx.n ? fx.txt : ''],
           ['acesso', poderes(ficheiro[x])],
           ['agente', x],
-        ]))}</li>`;
+        ]), sx)}</li>`;
       }).join('');
       return `<li>${cadeira(cargo(c.nome), (vago ? 'VAGA' : legivel(c.agente)) + ' · responde ao J.A.R.V.I.S.',
         'diretor ' + st + (vago ? ' vaga' : ''), corpo, selo)}
@@ -286,19 +334,29 @@ function organograma(e) {
       <ul>${cargos}${sol}</ul></details></li>`;
   }).join('');
 
+  const decis = mesa?.decisoes || [];
+  const doDono = tarefas.filter((x) => x.depende === 'rangel');
   const alertas = [
+    (decis.length || doDono.length) && `<b class="espera">Esperando o dono decidir:</b> ${[
+      decis.length && `${decis.length} decisão(ões) na mesa (${esc(decis.map((d) => d.id).join(', '))})`,
+      doDono.length && `${doDono.length} tarefa(s) que dependem dele (${esc(doDono.map((t) => t.id).join(', '))})`,
+    ].filter(Boolean).join(' · ')}`,
+    !mesa && '<b>SEM LEITURA da mesa de decisões</b>',
+    divergentes.length && `<b class="ruim">${divergentes.length} agente(s) com setor divergente:</b> ${esc(divergentes.join('; '))}`,
     mudos.length && `<b class="ruim">${mudos.length} diretor(es) mudo(s):</b> ${esc(mudos.map((c) => legivel(c.agente)).join(', '))}`,
     vagas.length && `<b class="ruim">${vagas.length} cadeira(s) vaga(s):</b> ${esc(vagas.map((c) => cargo(c.nome)).join(', '))}`,
     soltos.length && `<b>${soltos.length} agente(s) sem cargo:</b> ${esc(soltos.map((a) => legivel(a.nome)).join(', '))}`,
   ].filter(Boolean);
-  const faixa = `<div class="faixa ${mudos.length || vagas.length ? 'ruim' : 'bom'}">
+  const faixa = `<div class="faixa ${mudos.length || vagas.length || divergentes.length ? 'ruim' : 'bom'}">
     ${alertas.map((x) => `<p>${x}</p>`).join('')}
     ${mudos.length || vagas.length ? '' : '<p class="ok">✓ nenhum diretor mudo, nenhuma cadeira vaga</p>'}
     <small>${total} cadeira(s) ocupada(s) · ${ags.length} agente(s) na frota · toque numa cadeira para ver a ficha</small></div>`;
 
   return `${faixa}<div class="organo">
     ${cadeira('Dono', 'dono da empresa', 'topo')}
-    <ul><li>${cadeira('J.A.R.V.I.S.', 'CEO · responde ao dono', 'topo')}
+    <ul><li>${cadeira('J.A.R.V.I.S.', 'CEO · responde ao dono', 'topo',
+      decis.length ? ficha(decis.map((d) => [d.id, `${d.assunto}${d.vencida_dias ? ` — vencida há ${d.vencida_dias} dias` : ''}`])) : '',
+      decis.length ? `<em class="selo espera">${decis.length} decisão(ões) paradas</em>` : '')}
       <ul>${html}</ul></li></ul></div>`;
 }
 

@@ -94,6 +94,9 @@
     background:var(--vidro);border:1px solid var(--linha)}
   .cadeira i{font-style:normal;font-size:17px;line-height:1}
   .cadeira span{display:flex;flex-direction:column;min-width:0}
+  .cadeira{flex-wrap:wrap}
+  .cadeira .txt{flex:1 1 0}
+  .cadeira .selos{order:3;flex:0 0 100%;flex-direction:row;flex-wrap:wrap;gap:6px;padding-left:27px}
   .cadeira b{color:var(--white);font-weight:500;font-size:14px;overflow-wrap:anywhere}
   .cadeira small{font:11px/1.4 var(--mono);color:var(--muted);overflow-wrap:anywhere}
   .cadeira.topo{border-color:rgba(124,107,255,.45)}
@@ -107,7 +110,7 @@
   .organo summary{list-style:none;cursor:pointer}
   .organo summary::-webkit-details-marker{display:none}
   details.cadeira{display:block;padding:0}
-  details.cadeira>summary{display:flex;align-items:center;gap:10px;padding:9px 12px}
+  details.cadeira>summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:9px 12px}
   details.cadeira>summary::after{content:"▸";margin-left:auto;color:var(--muted);font-size:12px}
   details.cadeira[open]>summary::after{content:"▾"}
   details.cadeira[open]{border-color:rgba(124,107,255,.35)}
@@ -120,6 +123,8 @@
   .ficha dd{margin:2px 0 0;color:var(--cream);overflow-wrap:anywhere}
   .selo{font:normal 10.5px/1 var(--mono);padding:4px 7px;border-radius:999px;border:1px solid var(--linha);color:var(--muted);flex:none;white-space:nowrap}
   .selo.ruim{color:var(--bad);border-color:rgba(203,135,133,.4)}
+  .selo.espera{color:var(--warn);border-color:rgba(126,155,186,.45)}
+  .faixa b.espera{color:var(--warn)}
   .faixa{border:1px solid var(--linha);border-left:2px solid var(--good);border-radius:12px;padding:12px 14px;margin-bottom:14px;
     background:var(--vidro);font-size:14px}
   .faixa.ruim{border-left-color:var(--bad)}
