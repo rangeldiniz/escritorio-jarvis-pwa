@@ -28,7 +28,7 @@ const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k))
 // ── GitHub ────────────────────────────────────────────────────────────────
 // Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
 // serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
-const VERSAO_APP = 'v13';
+const VERSAO_APP = 'v14';
 const DADO_VELHO_MIN = 60;            // decisão do dono, 02/11: dado com mais de 1h fica vermelho
 
 async function gh(caminho, opcoes = {}) {
@@ -289,7 +289,8 @@ function semanas(ss) {
 function filaReal(f) {
   if (!f) return 'SEM LEITURA do placar do treino';
   if (!f.parados.length) return `nenhum — os ${f.aguardando} rascunho(s) entregues já têm linha no placar`;
-  return `${f.parados.length} sem linha no placar (${f.julgados} de ${f.aguardando} já julgados) · `
+  return `${f.parados.length} sem linha no placar (de ${f.aguardando} entregues: ${f.julgados} julgados pelo placar`
+    + (f.fechados ? `, ${f.fechados} fechados à mão como trocados ou descartados` : '') + ') · '
     + `idades em dias: ${f.parados.map((p) => p.dias ?? '?').join(', ')} · premissa: casamento por tipo `
     + 'e data; versão substituída (v2 trocada pela v3) segue contando como parada';
 }
