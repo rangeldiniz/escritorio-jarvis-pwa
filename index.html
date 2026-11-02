@@ -86,6 +86,23 @@
   input:focus{outline:none;box-shadow:0 0 0 3px rgba(124,107,255,.35)}
   form button{margin-top:18px;width:100%}
   .nota{font-size:13px;color:var(--muted);border-left:2px solid var(--tech);padding-left:11px;margin:18px 0}
+  /* organograma: cada <ul> é "responde a" o item de cima; a linha à esquerda é a corrente de comando */
+  .organo ul{list-style:none;margin:0;padding-left:16px;border-left:1px solid var(--linha);margin-left:13px}
+  .organo li{position:relative;padding-top:8px}
+  .organo li::before{content:"";position:absolute;left:-16px;top:27px;width:13px;border-top:1px solid var(--linha)}
+  .cadeira{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;
+    background:var(--vidro);border:1px solid var(--linha)}
+  .cadeira i{font-style:normal;font-size:17px;line-height:1}
+  .cadeira span{display:flex;flex-direction:column;min-width:0}
+  .cadeira b{color:var(--white);font-weight:500;font-size:14px;overflow-wrap:anywhere}
+  .cadeira small{font:11px/1.4 var(--mono);color:var(--muted);overflow-wrap:anywhere}
+  .cadeira.topo{border-color:rgba(124,107,255,.45)}
+  .cadeira.diretor{border-left:2px solid var(--tech)}
+  .cadeira.diretor.ok{border-left-color:var(--good)}
+  .cadeira.diretor.mudo{border-left-color:var(--bad)}
+  .cadeira.vaga,.cadeira.solto{border-style:dashed}
+  .organo .setor::before{display:none}
+  .nome-setor{margin:14px 0 2px;font:500 11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--tech-soft)}
 </style>
 </head>
 <body>
@@ -153,6 +170,8 @@
   <div id="fila"></div>
   <h2>alarmes acesos</h2>
   <div id="alarmes"></div>
+  <h2>organograma — quem responde a quem</h2>
+  <div id="organo"></div>
 </section>
 
 <script type="module" src="app.js"></script>

@@ -28,7 +28,7 @@ const lido = (k, p = null) => { try { return JSON.parse(localStorage.getItem(k))
 // ── GitHub ────────────────────────────────────────────────────────────────
 // Tem de subir JUNTO com o CASCA do sw.js. É este carimbo que aparece na tela:
 // serve pra responder "o aparelho está rodando o código novo?" com leitura, não fé.
-const VERSAO_APP = 'v8';
+const VERSAO_APP = 'v9';
 
 async function gh(caminho, opcoes = {}) {
   const c = lido(CFG);
@@ -167,6 +167,66 @@ async function decidir(acao, ids, motivo = '') {
 // ── tela ──────────────────────────────────────────────────────────────────
 const esc = (s) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 
+// ── organograma (02/11) ───────────────────────────────────────────────────
+// Dono → J.A.R.V.I.S. → setor → cadeira (diretor titular) → equipe. A fonte é a
+// DIRETORIA.tsv (colunas 4 e 8) e a lista REAL de agentes em ~/.claude/agents.
+// Todo agente ganha cadeira: quem não está na tabela aparece no setor que a ficha
+// dele declara, marcado "sem cargo" e respondendo ao J.A.R.V.I.S. — o desenho não
+// inventa um chefe que a tabela não deu.
+const SETOR = {
+  comercial: 'Comercial', producao: 'Produção — alunos', conteudo: 'Conteúdo',
+  financeiro: 'Financeiro', qualidade: 'Qualidade', conhecimento: 'Conhecimento',
+  infra: 'Infraestrutura', mercado: 'Mercado', geral: 'Gabinete do CEO',
+};
+const ORDEM_SETOR = Object.keys(SETOR);
+
+function cadeira(nome, papel, cls = '') {
+  return `<div class="cadeira ${cls}"><i>🪑</i><span><b>${esc(nome)}</b><small>${esc(papel)}</small></span></div>`;
+}
+
+function organograma(e) {
+  const dir = e.diretoria || [];
+  const ags = e.agentes || [];
+  if (!dir.length && !ags.length) return '<p class="vazio">SEM LEITURA da diretoria</p>';
+  const sentados = new Set();
+  const setores = {};
+  const setor = (k) => (setores[SETOR[k] ? k : 'geral'] ??= { cargos: [], soltos: [] });
+
+  for (const c of dir) {
+    if (c.agente && c.agente !== '-') sentados.add(c.agente);
+    for (const x of c.equipe || []) sentados.add(x);
+    setor(c.dep).cargos.push(c);
+  }
+  for (const a of ags) if (!sentados.has(a.nome)) setor(a.dep).soltos.push(a);
+
+  let n = 0;
+  const html = ORDEM_SETOR.filter((k) => setores[k]).map((k) => {
+    const s = setores[k];
+    const cargos = s.cargos.map((c) => {
+      const vago = !c.agente || c.agente === '-';
+      const st = c.mudo === true ? 'mudo' : c.mudo === false ? 'ok' : '';
+      n += vago ? 0 : 1;
+      const equipe = (c.equipe || []).map((x) => {
+        n++;
+        return `<li>${cadeira(x, 'responde a ' + c.agente)}</li>`;
+      }).join('');
+      return `<li>${cadeira(vago ? 'VAGA' : c.agente, c.nome + ' · responde ao J.A.R.V.I.S.', 'diretor ' + st + (vago ? ' vaga' : ''))}
+        ${equipe ? `<ul>${equipe}</ul>` : ''}</li>`;
+    }).join('');
+    const soltos = s.soltos.map((a) => {
+      n++;
+      return `<li>${cadeira(a.nome, 'sem cargo na diretoria · responde ao J.A.R.V.I.S.', 'solto')}</li>`;
+    }).join('');
+    return `<li class="setor"><p class="nome-setor">${esc(SETOR[k])}</p><ul>${cargos}${soltos}</ul></li>`;
+  }).join('');
+
+  return `<div class="organo">
+    ${cadeira('Dono', 'dono da empresa', 'topo')}
+    <ul><li>${cadeira('J.A.R.V.I.S.', 'CEO · responde ao dono', 'topo')}
+      <ul>${html}</ul></li></ul>
+    <p class="vazio">${n} cadeira(s) ocupada(s) · ${ags.length} agente(s) na frota</p></div>`;
+}
+
 function pintar() {
   const e = estado.escritorio || {};
   const pendentes = (estado.acoes || []).filter((a) => a.estado === 'simulada');
@@ -200,6 +260,8 @@ function pintar() {
           <button class="nao" data-acao="rejeitar">rejeitar</button>
         </div></div>`).join('')
     : '<p class="vazio">nada esperando decisão</p>';
+
+  $('#organo').innerHTML = organograma(e);
 }
 
 function aviso(txt, tipo = '') {
